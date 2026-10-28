@@ -43,10 +43,10 @@ BPM <input id="g_bpm" type="number" step="0.01"><button id="g_h" class="sub" typ
 <button id="g_go" type="button">生成</button>
 <details><summary>KSH出力（コピーして .ksh に保存）</summary><textarea id="g_out" readonly rows="6" style="width:100%"></textarea><button id="g_cp" class="sub" type="button">コピー</button></details></div>
 <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:12px"><canvas id="pv" width="520" height="800"></canvas><div id="set" style="flex:1"></div></div>
-<div class="row"><label><input type="checkbox" id="auto_cb"> オートプレイ（プレイ中 A で切替）</label><label><input type="checkbox" id="cfx_cb"> センターFXモード（Space）</label><label><input type="checkbox" id="nb_cb" checked> 両つまみが動いている間はノーツを置かない（放置つまみは対象外）</label></div>
+<div class="row"><label><input type="checkbox" id="auto_cb"> オートプレイ（プレイ中 A で切替）</label><label><input type="checkbox" id="cfx_cb"> センターFXモード（Space）</label><label><input type="checkbox" id="six_cb"> 6鍵盤表示（beatmania風・プレイ中 V で切替）</label><label><input type="checkbox" id="nb_cb" checked> 両つまみが動いている間はノーツを置かない（放置つまみは対象外）</label></div>
 <small>センターFX: 同時刻の FX-L＋FX-R（チップ／ロング）を中央の1ノーツにまとめ、Spaceで叩きます。自動生成でも出現します。</small><br>
 <button id="go" disabled>スタート</button>
-<p><small>BT: D F J K ／ FX: C M ／ つまみ: Q W / O P、または画面クリック後にマウス（X=左・Y=右） ／ ↑↓ 速度 ／ [ ] 傾斜 ／ , . 回転 ／ R リスタート ／ Esc メニュー ／ Space: センターFX ／ A: オート</small></p>
+<p><small>BT: D F J K ／ FX: C M ／ つまみ: Q W / O P、または画面クリック後にマウス（X=左・Y=右） ／ ↑↓ 速度 ／ [ ] 傾斜 ／ , . 回転 ／ R リスタート ／ Esc メニュー ／ Space: センターFX ／ A: オート ／ V: 6鍵盤表示</small></p>
 </main>
 <canvas id="cv" width="520" height="800"></canvas>
 <script>
@@ -187,6 +187,7 @@ addEventListener('keydown',e=>{
  else if(e.code==='Comma'){S.roll=Math.max(-30,S.roll-1);save();}
  else if(e.code==='Period'){S.roll=Math.min(30,S.roll+1);save();}
  else if(e.code==='KeyA'&&!e.repeat)G.auto=!G.auto;
+ else if(e.code==='KeyV'&&!e.repeat){S.six=S.six==1?0:1;save();}
  else if(laneOf(e.code)!==undefined&&!e.repeat){const l=laneOf(e.code);G.held[l]=true;if(!G.auto)hit(l);}});
 addEventListener('keyup',e=>{if(!G)return;G.keys.delete(e.code);{const l=laneOf(e.code);if(l!==undefined)G.held[l]=false;}});
 
@@ -425,19 +426,26 @@ addEventListener('keydown',e=>{if($('#title').style.display==='none'||$('#cv').s
  if(e.code==='Enter'||e.code==='Space'){e.preventDefault();if($('#t_menu').style.display==='none')tstate(1);else startDemo();}});
 
 const cv=$('#cv'),c2=cv.getContext('2d'),cx=W/2;
-const DEF={tilt:55,len:640,roll:0,lw:80,jy:690,off:0,auto:60,cam:1},CZ={bottom:0,top:0,side:0,roll:0},CT={bottom:0,top:0,side:0};
+const DEF={tilt:55,len:640,roll:0,lw:80,jy:690,off:0,auto:60,cam:1,six:0},CZ={bottom:0,top:0,side:0,roll:0},CT={bottom:0,top:0,side:0};
 let S={...DEF};
 try{Object.assign(S,JSON.parse(localStorage.getItem('ksp')||'{}'));}catch(e){}
 const SL=[['tilt','傾斜',0,100],['len','レーン長',400,760],['roll','回転',-30,30],['lw','レーン幅',50,110],['jy','判定線の高さ',560,760],['off','音源同期 ms（ノーツが遅い→＋）',-300,300],['auto','つまみ連動ロール（−で反転）',-100,100],['cam','譜面カメラ 0:切 1:入',0,1]];
 function save(){try{localStorage.setItem('ksp',JSON.stringify(S));}catch(e){}sync();}
-function sync(){SL.forEach(([k])=>{const r=$('#r_'+k);if(r){r.value=S[k];$('#o_'+k).textContent=S[k];}});const c=$('#pv').getContext('2d');field(c);c.restore();}
+function sync(){SL.forEach(([k])=>{const r=$('#r_'+k);if(r){r.value=S[k];$('#o_'+k).textContent=S[k];}});const sc=$('#six_cb');if(sc)sc.checked=S.six==1;const c=$('#pv').getContext('2d');field(c);c.restore();}
 function pr(lx,d){d=Math.max(d,-90);
+ if(S.six==1)return[cx+lx*Math.min(S.lw,86),S.jy-d];   // 6鍵盤: 遠近・カメラなしの平面表示
  const k=S.tilt*.03*Math.min(2,Math.max(0,1-CZ.top/150)),lw=S.lw*Math.min(2,Math.max(.5,1+CZ.bottom/150)),u=d/S.len,s=1/(1+k*u),dn=1-1/(1+k);
  return[cx+CZ.side*.8*(S.lw/80)+lx*lw*s,S.jy-(k<.01?d:S.len*(1-s)/dn)];}
 function quad(c,a0,b0,d0,a1,b1,d1,col){c.fillStyle=col;c.beginPath();
  let p=pr(a0,d0);c.moveTo(p[0],p[1]);p=pr(b0,d0);c.lineTo(p[0],p[1]);p=pr(b1,d1);c.lineTo(p[0],p[1]);p=pr(a1,d1);c.lineTo(p[0],p[1]);c.closePath();c.fill();}
+/* 6鍵盤スキン: 左FX・A・B・C・D・右FX を等間隔に並べる */
+function field6(c){const T=S.len*3;
+ for(let i=0;i<6;i++)quad(c,i-3,i-2,-90,i-3,i-2,T,(i===0||i===5)?(i%2?'#2a2024':'#251d22'):(i%2?'#17172e':'#1e1e3a'));
+ for(let i=0;i<=6;i++)quad(c,i-3-.02,i-3+.02,-90,i-3-.02,i-3+.02,T,(i===0||i===6)?'#7a7aa8':(i===1||i===5)?'#5a4a5a':'#3a3a66');
+ quad(c,-3,3,-1,-3,3,3,'#ff5078');}
 function field(c){
  c.fillStyle='#000';c.fillRect(0,0,W,H);c.save();
+ if(S.six==1){field6(c);return;}
  c.translate(cx,S.jy);c.rotate((S.roll+CZ.roll)*Math.PI/180);c.translate(-cx,-S.jy);
  const T=S.len*3;
  for(let k=0;k<227;k++){const xl=(14+k-127.5)/42.4,xr=(15+k-127.5)/42.4+.004;quad(c,xl,xr,-90,xl,xr,T,BC[k]);}
@@ -460,7 +468,7 @@ function lzUpdate(now,dt){
    z.lt+=80;}}}
 const BASEP='FiSMFiSMABAUABAUABAUABAUABAUABAUABAUABAUABAUABAUABAUABAUABAUABAUABAUABAUABAUABAUABAUABAUABAUABAUABAUABAUABAUAFyLAFyLAFyLjIyMEiYwEiYwEiUwEycyEiYwECEsEB8sDx4pEB8sDx4pDhomDRgjDRgjDRgjDRgjDxUhDxUhDRMfDxUhDxUhERQhEhUiEhUiFRglFhkmFRglFxonGRsnHSArHyEtHSArHSArISMuJig0KCk1IyUxIyYxJCY4IyVJjIyMjIyMICJHJCY4KCs2KCs1IyUxISMuISMuISMuISMuHB4qGh0pGRsnGh0pGRsnFhkmFBcjEhUiFBcjEhUiERQhERQhERQhFBcjFBcjFBcjFhkmFhkmGh0pHB4qGh0pHB4qHSArISMuJCYyISMuIyUxIyUxKCs2KCo8ICJHjIyMjIyMIyVJKCo8IyYxIyUxIyUxJig0JCYyHSArHSArHB4qHSArHB4qFxonFhkmFhkmFhkmFBcjEhUiERQhERQhEhUiEhUiEhUiEhUiFBcjFhkmGRsnFxonGRsnGh0pHyEtISMuHSArISMuISMuKCk1KCs1IyYxJCY4ICJHjIyMjIyMICJHJCY4IyYxKCs1KCk1ISMuISMuHSArISMuHyEtGh0pGRsnFhkmFhkmFhkmFBcjEhUiERQhEhUiEhUiERMhERMhERMhFBMjFhQlFhQlFhQlFhQlGxYpHRYqGxYpHRYqHxcrJRkxJRkxJRkxJRkxJRkxLBw4LBw4jIyMihJiihJiihJiFAANFAANFAANFAANFAANFAANFAANFAANFAANFAANFAANFAANFAANFAANFAANFAANFAANFAANFAANFAANFAANFAANFAANFAANFAANFAANFAANFAANFAANigBQigBQ',LZRAW=[[[[64, 168, 210], [63, 155, 195], [24, 107, 148], [15, 65, 94], [14, 61, 90], [14, 61, 90], [14, 61, 90]], [[115, 202, 255], [109, 191, 255], [0, 108, 223], [0, 75, 157], [0, 74, 154], [0, 74, 154], [0, 74, 154]], [[37, 141, 183], [37, 129, 170], [0, 84, 125], [0, 50, 79], [0, 47, 76], [0, 47, 76], [0, 47, 76]], [[0, 69, 97], [0, 61, 89], [0, 48, 71], [0, 28, 45], [0, 27, 43], [0, 27, 43], [0, 27, 43]]], [[[210, 64, 129], [195, 63, 118], [148, 24, 73], [94, 15, 44], [90, 14, 41], [90, 14, 41], [90, 14, 41]], [[255, 115, 163], [255, 109, 151], [223, 0, 50], [157, 0, 34], [154, 0, 33], [154, 0, 33], [154, 0, 33]], [[183, 37, 102], [170, 37, 93], [125, 0, 51], [79, 0, 29], [76, 0, 28], [76, 0, 28], [76, 0, 28]], [[97, 0, 43], [89, 0, 38], [71, 0, 28], [45, 0, 16], [43, 0, 15], [43, 0, 15], [43, 0, 15]]]],IMGU={chipse:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFIAAAAOCAYAAAC8YEsXAAAEiElEQVR42rWXS4tdRRDHf9Xdd+5M5p1kJjGLcYgR4yREUIngwsHN4CIirnQjkpULETeCO7d+AT+De3EhiEokWfiAGAWjoBFBmbyYyWMy79NdLk6fpKY99yaGseFwTndXV3f961/VdSR45yeCe/+Zg9NvHpreN0ZuUUmAJgVAY9KkShJBVdGoChABjR6tVBOQmvWVEmsBrd+1fK0TSKke3+3mnIgDl7vei9QfSP0CCXJ33gURB4iPiBfxAFLPS5YR78Q5Qbwg1LolVSku3b61+s3fV768WaX3ZH83vPjBO0c+eeP01OhQGMQ7R0qgJIj1fpogRcmIKikJKKjWc/UjuS9312gSUgK0nqvHBai98X80ycCJS7kPiCKuRkZc/e2cgtzrAzhfw+ecIl7ymGZ9UMMMzkFMifVqg3Nn1zj97o+vhefn9s6//eHoqFs9C2uZMw1Xtht6Zf9YzjVyVX6nLB/NXPOOZm0q9Ow6JfNZXeafy0/I4948oehj5DDzAcPx+gkOul049dZxXvh46mSYm5uccZvrsAhoYWjMY9GAZkGq8tNPJhZ61DgG4xTMYZsxMXIpr/VGJhrgrJ5gAPQt3wIMFGMluFIAXeqSTPfubZ46OnI4DMnkCAMzMHARttJOY6wBCnQMWxuGBgOQNdC2AGyZNWR5KQC04KoxqGFCCa4UfW/e0gJUA0KnBdyBFsb6Hs5o9gwK3Wc5cnBzys0+dmI/8so9C6UlXBQYAiZNPwFTwEQGrgFp04CUgENZpmG5B+aAPWZsL/CI0RuAJ4Exw/wp4Ili/8eBfSa9jAFHs8FqnDRpIqSbz2SJsg8YN6RxwAHjvBKLHankJEeOLUy55xZemsWN3GOFFZSCPWq+YxFODWMPFOwJwHrBvgYsa2ynOOx4ZolloTOsa2OxL0K/SSe+yKFa2AJw2+xT5TNrC7Gk0FUJJxZeftQNjUx0dgDSr8Ueid1uUhpyE5g2B29ju2/JdSsZ7H7tfmcWYL8hAUWulh5ME8P6frob/w0NO/fTmc8vkTbaEVdjYGOcFvnI5qst4LIJdcmhtGX6KeuMBctDwb5bZl0JAkZPKhydjHzKaaV0nL2Fm/XjBZi9QNQivQTlt68/+zOc//7MH6fiynxfrwuwYYBtjLhqwrQySdteSMu5LPLG2ItGlwOuAdcL4xYLh13L+9lL5ndzmTXhuWIio5GxF8ZmdrZNNUvmFm/03zFrtEdoA8TzfPfVyqWwdGdpmeqL2vvRGBuLMqh82urGqqV23O5Re0pL2XK/8udBZWz50/SDKZe2c04OJp+nPJaKy1INmK6IUgU2znHlzviNsLquy3SPwcRfEPOpUlGYV32AtPNlvyoc0xZ+u/5r8+/ieUex7Q2DO8Vcp6gp29ZaB/kEw8fZXLu+FH64uHhuY/HpjcGZVwdZ3cr/VC15IfUIe225vcsco//xktitP5xeNy0tNWzpBPpUB1D/Hw8PwGqH8xcufCvBOz9/2L9+cnZwfnpc19pw7Hn99xuXh9Cxm00fcE4fYn224eoN2fPr5c2fP/2l+ugfcMznnGEUDkoAAAAASUVORK5CYII=',long:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFIAAAALCAIAAABjz03zAAAEB0lEQVR42u1WS4tcVRD+6nFud0/MzOQl8RE0SjAxEhIkC7PygXt/j+AfyMa1e92KWbkQNyIoRBJdiIYoI8bojA46yfT0dN9TDxe3e7rjjAFxqUVx+TinqHPrUF99h26+f5Vvf9DWGkyWqB7VskbWNq2mW5qFe4RPgXuYhVu4h3mGhXlEwM3cMzw9IjwjPIIyE/ssM61Onrv8EoBb1z/T0iOi/WFExJzMwkLCzEIiJKrMUGFWViERFmVVFmERVu3CWJVFSQuVhgpTUSrCSuDIppQ48wb+t/+Q0avnl5880Rw9slxUd0ajjc3hcOQQWuhJPBw/0MiJBGgK//XPzZIskuCf4s5OrPQee/QIgJ3R6Pu79+nTqxeana3HX3iFByt1a+3ujU821lsAnuSBRbeAOzxQHQDMYAlzAHBLS4qABYDpYoeZACByCua3smDz3X3GBBUAUAYzejINVYESVAGgCIQhAmXIg84Myhws5VPnz60+ewXAHz/eGPmErr11tv3yW52d6gpgX7WLwNE6AFTHTsWpRyCE278DwNjx/Cp+neCnexCCMgaC7TrNfPowhoa7OwBwrIcnDuG7+5g4hHC4oK9YH8ETx3o43sfaNgB44ulljA1bhkIQxpmj+GWISaJHUEURAGgEIhCel72/fg+IAYAlmotntV/6sXJYvYIpApkZQQh0nh1wJCEJCQQRUVZHMJqCjQlaA5TCSTjWhmgNIgDQBmoCNGXBz7uoSGEiYNuxNkRNEMGBNjFuAYISth3tLpKQCWb8NgYzEgAhiH8YBgBRSspgGKEIQogpU5AMMLAHZp6chYgHXV+VfunTpdOD188dX12NtuaDMjMnbcTCesy/XX8uNCs8QADxPGCB9VO6Yl+zP3yrS4hZ2g7v0Wdva84LnjP8LyRvCm1t8UffbNKH77y5sv5xazWIHGg9rZNuS69pNd0zPCzCLcLTLcxnAu6BmjU6ufZOt2Oq25mZEQfpNtKsnrl0GcDtm9dVC+EAZjMTETETC/GebrOwUGFCIZWZXAtLp9jKyszCIqSFpFBRKkoq3AgJwJmNlnsnX9MXX764PNqw0bobW01rs46j7kYdwybhbbq5e7iFm3t1t+654lHDzafY0t3dIjzCMiLcIyPzwLIj28noyoVnABy681XTW6KDBhoxEZMIMzMrsbAoiwgriYoqiwoXnmGWIqIi3dNFRRrSHpc+yoBLn7UhLSQaunTy/tJFffft905tfr2zu+seu+4T89ZyYt5adHPLEwDcIxKROS0nwpMAmMc0ICITFgnAIwFEHixhmRhXrDdfAPj81rBfhvS3Y5wASDe6mYggzACEoNKBZGYmEu5uCTJdn0075Z5Ko9RTGYiI8KHB4M7xzT8BWCuW0dwUTqkAAAAASUVORK5CYII='};
 
-const IMG={},TIN={},LZW=4.56,LZXS=[40,38,35,29,20,8,0],ok=i=>i&&i.width>0;
+const IMG={},TIN={},LZW=4.56,lzw=()=>S.six==1?5.4:LZW,LZXS=[40,38,35,29,20,8,0],ok=i=>i&&i.width>0;
 function tintOf(i){const c=document.createElement('canvas');c.width=i.width;c.height=i.height;const x=c.getContext('2d');x.drawImage(i,0,0);
  const d=x.getImageData(0,0,c.width,c.height),a=d.data;for(let k=0;k<a.length;k+=4){const r=a[k],g=a[k+1],b=a[k+2];a[k]=b;a[k+1]=r;a[k+2]=g;}x.putImageData(d,0,0);return c;}
 /* 通常FXチップ（橙）はSE付きチップ（黄）の緑成分を落として生成 */
@@ -469,7 +477,7 @@ function mkChip(i){const c=document.createElement('canvas');c.width=i.width;c.he
 for(const k in IMGU){const i=new Image();i.onload=()=>{try{TIN[k]=tintOf(i);}catch(e){}if(k==='chipse'){try{mkChip(i);}catch(e){}}};i.src=IMGU[k];IMG[k]=i;}
 const BC=[];{const b=atob(BASEP);for(let k=0;k<227;k++)BC.push(`rgb(${b.charCodeAt(k*3)},${b.charCodeAt(k*3+1)},${b.charCodeAt(k*3+2)})`);}
 const LZC=LZRAW.map(side=>side.map(cols=>{const st=[];cols.forEach((c,i)=>st.push([(40-LZXS[i])/80,c]));for(let i=cols.length-2;i>=0;i--)st.push([1-(40-LZXS[i])/80,cols[i]]);return st;}));
-const LG=l=>l<4?[l-2,l-1]:l===4?[-2,0]:l===5?[0,2]:[-1,1];
+const SIXL={4:0,0:1,1:2,2:3,3:4,5:5},LG=l=>S.six==1?(l===6?[-3,3]:[SIXL[l]-3,SIXL[l]-2]):(l<4?[l-2,l-1]:l===4?[-2,0]:l===5?[0,2]:[-1,1]);
 function fxChip(c,a,b,d,img){quad(c,a-.02,b+.02,d-23,a-.02,b+.02,d+23,'rgba(8,10,28,.9)');const p=pr(a,d),q=pr(b,d),w=q[0]-p[0],h=44*w/82;c.drawImage(img,p[0],p[1]-h/2,w,h);}
 function fxBody(c,a,b,d0,d1,img){c.globalCompositeOperation='lighter';
  for(let d=d0;d<d1;d+=14){const e=Math.min(d1,d+14),p=pr(a,d),q=pr(b,d),r=pr(a,e);c.drawImage(img,0,5,82,1,p[0],r[1]-.5,q[0]-p[0],p[1]-r[1]+1);}
@@ -487,7 +495,7 @@ function lzPoly(c,pts,hw,col){c.fillStyle=col;c.beginPath();
 function lzDraw(c,z,now){
  const p=z.p,P=LZP[z.s],lit=now-z.hit<160,dead=now-z.bad<400,far=S.len*2.5,runs=[],slams=[];let run=[];
  for(let i=0;i<p.length-1;i++){
-  const A=p[i],B=p[i+1];let da=(A.t-now)*speed,db=(B.t-now)*speed,xa=(A.x-.5)*LZW,xb=(B.x-.5)*LZW;
+  const A=p[i],B=p[i+1];let da=(A.t-now)*speed,db=(B.t-now)*speed,xa=(A.x-.5)*lzw(),xb=(B.x-.5)*lzw();
   if(db<=0||da>far){if(run.length){runs.push(run);run=[];}continue;}
   if(db-da<70*speed&&Math.abs(xb-xa)>.4){if(run.length){runs.push(run);run=[];}slams.push([xa,xb,Math.max(da,0)]);continue;}
   if(da<0){xa+=(xb-xa)*(-da)/(db-da);da=0;}
@@ -545,21 +553,26 @@ function loop(ts){
   if(d1<-60||d0>S.len*2.5)continue;
   if(n.s==='hold')d0=0;
   const[a0,b0]=LG(n.l);c2.globalAlpha=n.s==='miss'?.35:1;
-  if(n.l<4){const a=a0+.1,b=b0-.1;
+  if(S.six==1){const fxl=n.l>=4,col=n.l===6?'#2fe08a':fxl?'#ff9a2a':(n.l===0||n.l===3)?'#ffffff':'#6aa8ff',a=a0+.06,b=b0-.06;
+   if(n.d>0)quad(c2,a+.1,b-.1,d0,a+.1,b-.1,d1,n.l===6?'rgba(47,224,138,.6)':fxl?'rgba(255,154,42,.6)':'rgba(190,215,255,.65)');
+   quad(c2,a-.03,b+.03,d0-12,a-.03,b+.03,d0+12,'#0a0e28');quad(c2,a,b,d0-10,a,b,d0+10,col);quad(c2,a+.1,b-.1,d0-3,a+.1,b-.1,d0+3,'rgba(255,255,255,.55)');}
+  else if(n.l<4){const a=a0+.1,b=b0-.1;
    if(n.d>0){quad(c2,a+.05,b-.05,d0,a+.05,b-.05,d1,'rgba(10,14,40,.85)');quad(c2,a+.12,b-.12,d0,a+.12,b-.12,d1,'rgba(190,215,255,.92)');}
    quad(c2,a-.03,b+.03,d0-13,a-.03,b+.03,d0+14,'#0a0e28');quad(c2,a,b,d0-11,a,b,d0+12,'#ffffff');quad(c2,a+.08,b-.08,d0-5,a+.08,b-.08,d0+6,'#8fb4ff');}
   else{const src=n.l===6?TIN:IMG,ch=src[n.se?'chipse':'chip'],lg=src.long,a=a0+.03,b=b0-.03;
    if(n.d>0){if(ok(lg)){quad(c2,a,b,d0,a,b,d1,'rgba(8,10,28,.6)');fxBody(c2,a,b,d0,d1,lg);fxCap(c2,a,b,d1,lg);if(n.s!=='hold')fxCap(c2,a,b,d0,lg);}else quad(c2,a,b,d0,a,b,d1,n.l===6?'#1a7a4a':'#7a3a00');}
    else if(ok(ch))fxChip(c2,a,b,d0,ch);else quad(c2,a,b,d0-7,a,b,d0+9,n.l===6?'#4f8':'#fa4');}
   c2.globalAlpha=1;}
+ c2.globalAlpha=S.six==1?.5:1;
  for(const z of G.lasers)lzDraw(c2,z,now);
  c2.globalCompositeOperation='source-over';
  c2.globalAlpha=1;
- for(let s=0;s<2;s++){const p=pr((G.cur[s]-.5)*LZW,0);c2.fillStyle=s?'#ff4a6a':'#3aa0ff';c2.strokeStyle='#fff';
+ for(let s=0;s<2;s++){const p=pr((G.cur[s]-.5)*lzw(),0);c2.fillStyle=s?'#ff4a6a':'#3aa0ff';c2.strokeStyle='#fff';
   c2.beginPath();c2.moveTo(p[0],p[1]-4);c2.lineTo(p[0]-14,p[1]+22);c2.lineTo(p[0]+14,p[1]+22);c2.closePath();c2.fill();c2.stroke();}
  c2.fillStyle='#b4b4d2';c2.font='18px system-ui,sans-serif';c2.textAlign='center';
- [['D',-1.5],['F',-.5],['J',.5],['K',1.5]].forEach(([t,x])=>{const p=pr(x,-45);c2.fillText(t,p[0],p[1]);});
- [['C',-1],['M',1],...(G.cfx?[['SP',0]]:[])].forEach(([t,x])=>{const p=pr(x,-70);c2.fillText(t,p[0],p[1]);});
+ if(S.six==1){[['C',-2.5],['D',-1.5],['F',-.5],['J',.5],['K',1.5],['M',2.5]].forEach(([t,x])=>{const p=pr(x,-45);c2.fillText(t,p[0],p[1]);});if(G.cfx){const p=pr(0,-72);c2.fillText('SP',p[0],p[1]);}}
+ else{[['D',-1.5],['F',-.5],['J',.5],['K',1.5]].forEach(([t,x])=>{const p=pr(x,-45);c2.fillText(t,p[0],p[1]);});
+ [['C',-1],['M',1],...(G.cfx?[['SP',0]]:[])].forEach(([t,x])=>{const p=pr(x,-70);c2.fillText(t,p[0],p[1]);});}
  c2.restore();
  c2.textAlign='center';c2.fillStyle='#707090';c2.font='14px system-ui,sans-serif';c2.fillText(document.pointerLockElement===cv?'マウスつまみ ON（X=左 / Y=右）':'クリックでマウスつまみ ON',cx,H-12);
  c2.textAlign='left';c2.fillStyle='#dcdcf0';c2.font='20px system-ui,sans-serif';
@@ -585,6 +598,7 @@ function loop(ts){
 $('#set').innerHTML=SL.map(([k,n,a,b])=>`<label>${n}<output id="o_${k}"></output><input type="range" id="r_${k}" min="${a}" max="${b}"></label>`).join('')+'<button id="rs" type="button" class="sub">初期値に戻す</button>';
 SL.forEach(([k])=>$('#r_'+k).oninput=e=>{S[k]=+e.target.value;save();});
 $('#rs').onclick=()=>{S={...DEF};save();};
+$('#six_cb').onchange=e=>{S.six=e.target.checked?1:0;save();};
 cv.addEventListener('click',()=>{try{cv.requestPointerLock();}catch(e){}});
 document.addEventListener('mousemove',e=>{if(!G||document.pointerLockElement!==cv)return;const k=.0016*MS.sens/90,cl=v=>Math.min(1,Math.max(0,v));
  G.cur[0]=cl(G.cur[0]+e.movementX*k*MS.x);G.cur[1]=cl(G.cur[1]+e.movementY*k*MS.y);});
