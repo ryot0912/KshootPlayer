@@ -43,7 +43,7 @@ BPM <input id="g_bpm" type="number" step="0.01"><button id="g_h" class="sub" typ
 <button id="g_go" type="button">生成</button>
 <details><summary>KSH出力（コピーして .ksh に保存）</summary><textarea id="g_out" readonly rows="6" style="width:100%"></textarea><button id="g_cp" class="sub" type="button">コピー</button></details></div>
 <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:12px"><canvas id="pv" width="520" height="800"></canvas><div id="set" style="flex:1"></div></div>
-<div class="row"><label><input type="checkbox" id="auto_cb"> オートプレイ（プレイ中 A で切替）</label><label><input type="checkbox" id="cfx_cb"> センターFXモード（Space）</label><label><input type="checkbox" id="six_cb"> 6鍵盤表示（beatmania風・プレイ中 V で切替）</label><label><input type="checkbox" id="nb_cb" checked> 両つまみが動いている間はノーツを置かない（放置つまみは対象外）</label></div>
+<div class="row"><label><input type="checkbox" id="auto_cb"> オートプレイ（プレイ中 A で切替）</label><label><input type="checkbox" id="cfx_cb"> センターFXモード（Space）</label><label><input type="checkbox" id="six_cb"> 6鍵盤表示（1=A 2=左FX 3=B 4=C 5=右FX 6=D・プレイ中 V で切替）</label><label><input type="checkbox" id="nb_cb" checked> 両つまみが動いている間はノーツを置かない（放置つまみは対象外）</label></div>
 <small>センターFX: 同時刻の FX-L＋FX-R（チップ／ロング）を中央の1ノーツにまとめ、Spaceで叩きます。自動生成でも出現します。</small><br>
 <button id="go" disabled>スタート</button>
 <p><small>BT: D F J K ／ FX: C M ／ つまみ: Q W / O P、または画面クリック後にマウス（X=左・Y=右） ／ ↑↓ 速度 ／ [ ] 傾斜 ／ , . 回転 ／ R リスタート ／ Esc メニュー ／ Space: センターFX ／ A: オート ／ V: 6鍵盤表示</small></p>
@@ -438,10 +438,10 @@ function pr(lx,d){d=Math.max(d,-90);
  return[cx+CZ.side*.8*(S.lw/80)+lx*lw*s,S.jy-(k<.01?d:S.len*(1-s)/dn)];}
 function quad(c,a0,b0,d0,a1,b1,d1,col){c.fillStyle=col;c.beginPath();
  let p=pr(a0,d0);c.moveTo(p[0],p[1]);p=pr(b0,d0);c.lineTo(p[0],p[1]);p=pr(b1,d1);c.lineTo(p[0],p[1]);p=pr(a1,d1);c.lineTo(p[0],p[1]);c.closePath();c.fill();}
-/* 6鍵盤スキン: 左FX・A・B・C・D・右FX を等間隔に並べる */
+/* 6鍵盤スキン: 1=A 2=左FX 3=B 4=C 5=右FX 6=D を等間隔に並べる */
 function field6(c){const T=S.len*3;
- for(let i=0;i<6;i++)quad(c,i-3,i-2,-90,i-3,i-2,T,(i===0||i===5)?(i%2?'#2a2024':'#251d22'):(i%2?'#17172e':'#1e1e3a'));
- for(let i=0;i<=6;i++)quad(c,i-3-.02,i-3+.02,-90,i-3-.02,i-3+.02,T,(i===0||i===6)?'#7a7aa8':(i===1||i===5)?'#5a4a5a':'#3a3a66');
+ for(let i=0;i<6;i++)quad(c,i-3,i-2,-90,i-3,i-2,T,(i===1||i===4)?'#2a2024':(i%2?'#17172e':'#1e1e3a'));
+ for(let i=0;i<=6;i++)quad(c,i-3-.02,i-3+.02,-90,i-3-.02,i-3+.02,T,(i===0||i===6)?'#7a7aa8':'#3a3a66');
  quad(c,-3,3,-1,-3,3,3,'#ff5078');}
 function field(c){
  c.fillStyle='#000';c.fillRect(0,0,W,H);c.save();
@@ -477,7 +477,7 @@ function mkChip(i){const c=document.createElement('canvas');c.width=i.width;c.he
 for(const k in IMGU){const i=new Image();i.onload=()=>{try{TIN[k]=tintOf(i);}catch(e){}if(k==='chipse'){try{mkChip(i);}catch(e){}}};i.src=IMGU[k];IMG[k]=i;}
 const BC=[];{const b=atob(BASEP);for(let k=0;k<227;k++)BC.push(`rgb(${b.charCodeAt(k*3)},${b.charCodeAt(k*3+1)},${b.charCodeAt(k*3+2)})`);}
 const LZC=LZRAW.map(side=>side.map(cols=>{const st=[];cols.forEach((c,i)=>st.push([(40-LZXS[i])/80,c]));for(let i=cols.length-2;i>=0;i--)st.push([1-(40-LZXS[i])/80,cols[i]]);return st;}));
-const SIXL={4:0,0:1,1:2,2:3,3:4,5:5},LG=l=>S.six==1?(l===6?[-3,3]:[SIXL[l]-3,SIXL[l]-2]):(l<4?[l-2,l-1]:l===4?[-2,0]:l===5?[0,2]:[-1,1]);
+const SIXL={0:0,4:1,1:2,2:3,5:4,3:5},LG=l=>S.six==1?(l===6?[-3,3]:[SIXL[l]-3,SIXL[l]-2]):(l<4?[l-2,l-1]:l===4?[-2,0]:l===5?[0,2]:[-1,1]);
 function fxChip(c,a,b,d,img){quad(c,a-.02,b+.02,d-23,a-.02,b+.02,d+23,'rgba(8,10,28,.9)');const p=pr(a,d),q=pr(b,d),w=q[0]-p[0],h=44*w/82;c.drawImage(img,p[0],p[1]-h/2,w,h);}
 function fxBody(c,a,b,d0,d1,img){c.globalCompositeOperation='lighter';
  for(let d=d0;d<d1;d+=14){const e=Math.min(d1,d+14),p=pr(a,d),q=pr(b,d),r=pr(a,e);c.drawImage(img,0,5,82,1,p[0],r[1]-.5,q[0]-p[0],p[1]-r[1]+1);}
@@ -570,7 +570,7 @@ function loop(ts){
  for(let s=0;s<2;s++){const p=pr((G.cur[s]-.5)*lzw(),0);c2.fillStyle=s?'#ff4a6a':'#3aa0ff';c2.strokeStyle='#fff';
   c2.beginPath();c2.moveTo(p[0],p[1]-4);c2.lineTo(p[0]-14,p[1]+22);c2.lineTo(p[0]+14,p[1]+22);c2.closePath();c2.fill();c2.stroke();}
  c2.fillStyle='#b4b4d2';c2.font='18px system-ui,sans-serif';c2.textAlign='center';
- if(S.six==1){[['C',-2.5],['D',-1.5],['F',-.5],['J',.5],['K',1.5],['M',2.5]].forEach(([t,x])=>{const p=pr(x,-45);c2.fillText(t,p[0],p[1]);});if(G.cfx){const p=pr(0,-72);c2.fillText('SP',p[0],p[1]);}}
+ if(S.six==1){[['D',-2.5],['C',-1.5],['F',-.5],['J',.5],['M',1.5],['K',2.5]].forEach(([t,x])=>{const p=pr(x,-45);c2.fillText(t,p[0],p[1]);});if(G.cfx){const p=pr(0,-72);c2.fillText('SP',p[0],p[1]);}}
  else{[['D',-1.5],['F',-.5],['J',.5],['K',1.5]].forEach(([t,x])=>{const p=pr(x,-45);c2.fillText(t,p[0],p[1]);});
  [['C',-1],['M',1],...(G.cfx?[['SP',0]]:[])].forEach(([t,x])=>{const p=pr(x,-70);c2.fillText(t,p[0],p[1]);});}
  c2.restore();
