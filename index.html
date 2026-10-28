@@ -492,8 +492,10 @@ function lzPoly(c,pts,hw,col){c.fillStyle=col;c.beginPath();
  pts.forEach(([x,d],i)=>{const p=pr(x-hw,d);i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]);});
  for(let i=pts.length-1;i>=0;i--){const p=pr(pts[i][0]+hw,pts[i][1]);c.lineTo(p[0],p[1]);}
  c.closePath();c.fill();}
+function lzEdge(c,pts,hw,col,w){c.strokeStyle=col;c.lineWidth=w;c.lineJoin='round';
+ for(const sg of[-1,1]){c.beginPath();pts.forEach(([x,d],i)=>{const p=pr(x+sg*hw,d);i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]);});c.stroke();}}
 function lzDraw(c,z,now){
- const p=z.p,P=LZP[z.s],lit=now-z.hit<160,dead=now-z.bad<400,far=S.len*2.5,runs=[],slams=[];let run=[];
+ const p=z.p,P=LZP[z.s],lit=now-z.hit<160,dead=now-z.bad<400,far=S.len*2.5,runs=[],slams=[],ca=c.globalAlpha;let run=[];
  for(let i=0;i<p.length-1;i++){
   const A=p[i],B=p[i+1];let da=(A.t-now)*speed,db=(B.t-now)*speed,xa=(A.x-.5)*lzw(),xb=(B.x-.5)*lzw();
   if(db<=0||da>far){if(run.length){runs.push(run);run=[];}continue;}
@@ -502,16 +504,16 @@ function lzDraw(c,z,now){
   if(db>far){xb=xa+(xb-xa)*(far-da)/(db-da);db=far;}
   if(!run.length)run.push([xa,da]);run.push([xb,db]);}
  if(run.length)runs.push(run);
- const col=dead?P.x:lit?P.h:P.b;
- for(const r of runs)lzPoly(c,r,.5,P.g);
- for(const [xa,xb,d] of slams){const lo=Math.min(xa,xb)-.3,hi=Math.max(xa,xb)+.3;lzPoly(c,[[lo+.3,d],[lo+.3,d]],0,P.g);quad(c,lo-.14,hi+.14,d-4,lo-.14,hi+.14,d+30,P.g);}
- for(const r of runs)lzPoly(c,r,.3,col);
- for(const [xa,xb,d] of slams){const dir=xb>xa?1:-1,lo=Math.min(xa,xb)-.3,hi=Math.max(xa,xb)+.3;
-  quad(c,lo,hi,d,lo,hi,d+26,col);
-  const bx=dir>0?hi:lo,t=pr(bx+dir*.55,d+13),u=pr(bx,d-3),v=pr(bx,d+29);
-  c.fillStyle=lit?P.h:P.c;c.beginPath();c.moveTo(t[0],t[1]);c.lineTo(u[0],u[1]);c.lineTo(v[0],v[1]);c.closePath();c.fill();
-  quad(c,lo,hi,d+10,lo,hi,d+16,P.c);}
- for(const r of runs)lzPoly(c,r,.09,P.c);}
+ const col=dead?P.x:lit?P.h:P.b,edge=dead?P.x:lit?P.h:P.c;
+ /* 半透明: 外周グロー(薄)＋本体(半透明)＋縁線(はっきり)。下のノーツが透けて見える */
+ c.globalAlpha=ca*.14;for(const r of runs)lzPoly(c,r,.5,col);
+ c.globalAlpha=ca*.5;for(const r of runs)lzPoly(c,r,.3,col);
+ c.globalAlpha=ca*.95;for(const r of runs)lzEdge(c,r,.3,edge,2);
+ for(const [xa,xb,d] of slams){const lo=Math.min(xa,xb)-.3,hi=Math.max(xa,xb)+.3;
+  c.globalAlpha=ca*.5;quad(c,lo,hi,d,lo,hi,d+24,col);
+  c.globalAlpha=ca*.95;c.strokeStyle=edge;c.lineWidth=2;c.beginPath();
+  [[lo,d],[hi,d],[hi,d+24],[lo,d+24]].forEach(([x,y],i)=>{const q=pr(x,y);i?c.lineTo(q[0],q[1]):c.moveTo(q[0],q[1]);});c.closePath();c.stroke();}
+ c.globalAlpha=ca;}
 function autoPlay(now){G.held.fill(false);
  for(const n of G.notes){
   if(n.s==='w'&&now>=n.t){n.s=n.d>0?'hold':'done';G.score+=100;G.combo++;G.maxc=Math.max(G.maxc,G.combo);G.j='CRITICAL';G.jt=now;if(!n.d)G.flash[n.l]=now+90;}
@@ -563,7 +565,6 @@ function loop(ts){
    if(n.d>0){if(ok(lg)){quad(c2,a,b,d0,a,b,d1,'rgba(8,10,28,.6)');fxBody(c2,a,b,d0,d1,lg);fxCap(c2,a,b,d1,lg);if(n.s!=='hold')fxCap(c2,a,b,d0,lg);}else quad(c2,a,b,d0,a,b,d1,n.l===6?'#1a7a4a':'#7a3a00');}
    else if(ok(ch))fxChip(c2,a,b,d0,ch);else quad(c2,a,b,d0-7,a,b,d0+9,n.l===6?'#4f8':'#fa4');}
   c2.globalAlpha=1;}
- c2.globalAlpha=S.six==1?.5:1;
  for(const z of G.lasers)lzDraw(c2,z,now);
  c2.globalCompositeOperation='source-over';
  c2.globalAlpha=1;
