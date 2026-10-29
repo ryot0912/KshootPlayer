@@ -97,7 +97,7 @@ function parseKsh(t){
   T=times[N];}
  lfeed(0,'-',T);lfeed(1,'-',T);
  for(let a=0;a<6;a++)if(hold[a]!==null)notes.push({t:hold[a]+off,l:a,d:T-hold[a]});
- return{title:meta.title||'',artist:meta.artist||'',audio:(meta.m||'').split(';')[0],notes,lasers,cam,bl,bpm:parseFloat((meta.t||'120').split('-')[0])||120};}
+ return{title:meta.title||'',artist:meta.artist||'',audio:(meta.m||'').split(';')[0],notes,lasers,cam,bl,bpm:parseFloat((meta.t||'120').split('-')[0])||120,cfx:meta.cfx==='1'};}
 
 function parseKson(t){
  const d=JSON.parse(t.replace(/^\uFEFF/,'')),m=d.meta||{},bg=(d.audio||{}).bgm||{},off=+bg.offset||0,be=d.beat||{},res=be.resolution||240;
@@ -231,7 +231,7 @@ async function start(){
  if(demoMode)buf=demoBuf;
  else if(chart&&chart.mix)buf=chart.mix;
  else if(audioFile){try{buf=await ctx.decodeAudioData(await audioFile.arrayBuffer());}catch(e){$('#info').textContent='音源をデコードできませんでした（無音で進行）';}}
- const cf=demoMode||$('#cfx_cb').checked;
+ const cf=demoMode||$('#cfx_cb').checked||!!chart.cfx;
  G={demo:demoMode,cfx:cf,notes:(cf?mergeCenter(chart.notes):chart.notes).map(n=>({...n,s:'w'})),score:0,combo:0,maxc:0,j:'',jt:0,t0:ctx.currentTime+2,held:Array(7).fill(false),auto:demoMode||$('#auto_cb').checked,flash:Array(7).fill(0),ci:0,tm:'normal',keys:new Set(),cur:[0,1],prev:0,lasers:(chart.lasers||[]).map(l=>({s:l.s,p:l.p,lt:l.p[0].t,hit:-1e9,bad:-1e9}))};
  G.end=Math.max(0,...G.notes.map(n=>n.t+n.d),...G.lasers.map(l=>l.p[l.p.length-1].t))+1500;
  if(buf){src=ctx.createBufferSource();src.buffer=buf;src.connect(ctx.destination);src.start(G.t0);}
