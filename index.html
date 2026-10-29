@@ -34,8 +34,9 @@ button.sub{background:var(--card);color:var(--fg);border:1px solid var(--mute);p
 <main id="menu" style="display:none">
 <button id="m_back" class="sub" type="button">← タイトルへ</button>
 <h1 style="font-size:22px">K-Shoot Player</h1>
-<div id="drop">譜面（.ksh / .ksm / .kson）と音源（.ogg / .mp3 など）を<br>まとめてここにドロップ、またはクリックして選択<br><small>config.ini も一緒に入れるとキー配置・ハイスピ・マウス設定を反映します</small><input id="file" type="file" multiple hidden></div>
+<div id="drop">譜面（.ksh / .ksm / .kson）と音源（.ogg / .mp3 など）を<br>まとめてここにドロップ、またはクリックして選択<br><small>config.ini も一緒に入れるとキー配置・ハイスピ・マウス設定を反映します</small><br><small>BMS（6key）: .bms と キー音(.wav/.ogg)を全部まとめて入れるとSDVX表示に変換します（V で6鍵盤表示に切替）</small><input id="file" type="file" multiple hidden></div>
 <p id="info">ファイル未選択</p>
+<select id="bms_sel" style="display:none;margin-bottom:8px"></select>
 <div id="gen"><b>自動生成モード</b><br><small>音源だけ（ogg / mp3）でも譜面を作れます。参考KSH 5譜面の統計（密度・レーン遷移・ホールド長・つまみ形状）に基づきます。BPMは一定として扱います。生成後に無理押しを自動検査し、残らなくなるまでノーツを間引きます。</small>
 <div class="row"><select id="g_diff"><option value="0">かんたん</option><option value="1" selected>ふつう</option><option value="2">むずかしい</option><option value="3">インフィニット</option></select>
 BPM <input id="g_bpm" type="number" step="0.01"><button id="g_h" class="sub" type="button">×½</button><button id="g_d" class="sub" type="button">×2</button>
@@ -126,11 +127,84 @@ async function applyIni(t){
  if(+c.hispeed)speed=Math.min(2,Math.max(.15,+c.hispeed/800*.6));
  MS.x=+c.mouse_directionx||1;MS.y=+c.mouse_directiony||1;MS.sens=+c.mouse_sensitivity||90;
  $('#info').textContent='config.ini を反映しました（キー配置・ハイスピード・マウス設定）';}
+/* ===== BMS(6key) → SDVX変換 ===== */
+const BMSL={11:0,12:4,13:1,14:2,15:5,16:3};   // 11〜16ch → A, FX-L, B, C, FX-R, D（6鍵盤表示と同じ並び）
+function bmsParse(txt){
+ const H={},wav={},bx={},sx={},ml={},ob=[];let ifOk=true,lnobj=null,m;
+ for(const raw of txt.replace(/^\uFEFF/,'').split(/\r?\n/)){
+  const l=raw.trim();if(l[0]!=='#')continue;
+  if(/^#RANDOM\s+\d+/i.test(l)){ifOk=true;continue;}
+  if((m=/^#IF\s+(\d+)/i.exec(l))){ifOk=(+m[1]===1);continue;}
+  if(/^#END(IF|RANDOM)/i.test(l)){ifOk=true;continue;}
+  if(!ifOk)continue;
+  if((m=/^#(\d{3})([0-9A-Za-z]{2}):\s*(\S+)/.exec(l))){
+   const mi=+m[1],ch=m[2].toUpperCase(),d=m[3];
+   if(ch==='02'){ml[mi]=parseFloat(d)||1;continue;}
+   for(let i=0;i+1<d.length;i+=2){const id=d.substr(i,2).toUpperCase();if(id!=='00')ob.push({m:mi,p:i/d.length,ch,id});}
+   continue;}
+  if((m=/^#WAV([0-9A-Za-z]{2})\s+(.+)$/i.exec(l))){wav[m[1].toUpperCase()]=m[2].trim();continue;}
+  if((m=/^#BPM([0-9A-Za-z]{2})\s+([\d.]+)/i.exec(l))){bx[m[1].toUpperCase()]=parseFloat(m[2]);continue;}
+  if((m=/^#STOP([0-9A-Za-z]{2})\s+([\d.]+)/i.exec(l))){sx[m[1].toUpperCase()]=parseFloat(m[2]);continue;}
+  if((m=/^#LNOBJ\s+(\w\w)/i.exec(l))){lnobj=m[1].toUpperCase();continue;}
+  if((m=/^#(TITLE|ARTIST|BPM)\s+(.+)$/i.exec(l)))H[m[1].toUpperCase()]=m[2].trim();}
+ const bpm0=parseFloat(H.BPM)||120,byM={};ob.forEach(o=>{(byM[o.m]=byM[o.m]||[]).push(o);});
+ const nm=ob.reduce((a,o)=>Math.max(a,o.m+1),0);
+ let bpm=bpm0,t=0;const bl=[{t:-1e9,b:bpm}],ks=[],notes=[],op={},last={};
+ for(let mi=0;mi<nm;mi++){
+  const len=4*(ml[mi]||1),L=(byM[mi]||[]).slice().sort((a,b)=>a.p-b.p);let pp=0;
+  for(let i=0;i<L.length;){
+   let j=i;while(j<L.length&&Math.abs(L[j].p-L[i].p)<1e-9)j++;
+   const g=L.slice(i,j);t+=(g[0].p-pp)*len*60/bpm;pp=g[0].p;i=j;
+   for(const o of g){if(o.ch==='03'){const v=parseInt(o.id,16);if(v>0){bpm=v;bl.push({t:t*1000,b:bpm});}}
+    else if(o.ch==='08'&&bx[o.id]){bpm=bx[o.id];bl.push({t:t*1000,b:bpm});}}
+   let stop=0;
+   for(const o of g){
+    const c=/^\d\d$/.test(o.ch)?+o.ch:0;
+    if(o.ch==='01')ks.push({t,id:o.id});
+    else if(o.ch==='09'){if(sx[o.id])stop+=sx[o.id];}
+    else if(BMSL[c]!==undefined){const lane=BMSL[c];
+     if(o.id===lnobj){if(last[lane]){last[lane].d=t*1000-last[lane].t;last[lane]=null;}}
+     else{const n={t:t*1000,l:lane,d:0};notes.push(n);ks.push({t,id:o.id});last[lane]=n;}}
+    else if(c>=51&&c<=56){const lane=BMSL[c-40];
+     if(op[lane]){op[lane].d=t*1000-op[lane].t;op[lane]=null;}
+     else{const n={t:t*1000,l:lane,d:0};notes.push(n);ks.push({t,id:o.id});op[lane]=n;}}}
+   if(stop)t+=stop/192*4*60/bpm;}
+  t+=(1-pp)*len*60/bpm;}
+ return{title:H.TITLE||'',artist:H.ARTIST||'',bpm:bpm0,bl,ks,notes,wav,end:t};}
+let bmsFiles=[];
+async function loadBms(f,files){
+ try{
+  $('#info').textContent='BMSを解析中…';
+  const ab=await f.arrayBuffer();let txt;
+  try{txt=new TextDecoder('utf-8',{fatal:true}).decode(ab);}catch(e){txt=new TextDecoder('shift_jis').decode(ab);}
+  const B=bmsParse(txt);if(!B.notes.length)throw new Error('6key（11〜16ch）のノーツがありません');
+  const fm=new Map(files.map(x=>[x.name.toLowerCase(),x]));
+  const find=n=>{n=n.toLowerCase();if(fm.has(n))return fm.get(n);const b=n.replace(/\.[^.]+$/,'');for(const e of ['.ogg','.wav','.mp3','.flac','.m4a'])if(fm.has(b+e))return fm.get(b+e);return null;};
+  ctx=ctx||new (window.AudioContext||window.webkitAudioContext)();
+  const ids=[...new Set(B.ks.map(e=>e.id))],dec={};let k=0,miss=0;
+  for(const id of ids){k++;if(k%20===0){$('#info').textContent=`キー音を読み込み中… ${k}/${ids.length}`;await new Promise(r=>setTimeout(r));}
+   const fl=B.wav[id]&&find(B.wav[id]);if(!fl){miss++;continue;}
+   try{dec[id]=await ctx.decodeAudioData(await fl.arrayBuffer());}catch(e){miss++;}}
+  let tot=B.end;for(const e of B.ks){const d=dec[e.id];if(d)tot=Math.max(tot,e.t+d.duration);}
+  tot=Math.min(tot+1,900);const sr=ctx.sampleRate,nd=Object.keys(dec).length;let mix=null;
+  if(nd){$('#info').textContent='音源をミックス中…';
+   const oc=new OfflineAudioContext(2,Math.ceil(tot*sr),sr),g=oc.createGain();g.gain.value=.85;g.connect(oc.destination);
+   for(const e of B.ks){const d=dec[e.id];if(!d||e.t>=tot)continue;const s=oc.createBufferSource();s.buffer=d;s.connect(g);s.start(e.t);}
+   mix=await oc.startRendering();}
+  B.notes.sort((a,b)=>a.t-b.t);
+  chart={title:B.title||f.name,artist:B.artist,audio:null,notes:B.notes,lasers:[],cam:[],bpm:B.bpm,bl:B.bl,mix};
+  audioFile=null;genFile=null;showGen(false);
+  $('#info').textContent=`BMS→SDVX変換: ${chart.title} ／ ノーツ ${chart.notes.length}（11〜16ch → A,FX-L,B,C,FX-R,D）／ キー音 ${nd}/${ids.length}${miss?`（未検出 ${miss}）`:''}${mix?'':' ／ 音源なし'}`+muriTxt(chart);
+  $('#go').disabled=false;
+ }catch(e){$('#info').textContent='BMSを読み込めませんでした: '+e.message;}}
 async function loadFiles(list){
  const files=[...list],cf=files.find(f=>/\.(ksh|ksm|kson)$/i.test(f.name));
  const ini=files.find(f=>/\.ini$/i.test(f.name));
  if(ini){await applyIni(await ini.text());}
  const af0=files.find(f=>/\.(ogg|mp3|wav|m4a|flac)$/i.test(f.name));
+ bmsFiles=files.filter(f=>/\.(bms|bme|bml)$/i.test(f.name)).sort((a,b)=>a.name.localeCompare(b.name));
+ if(bmsFiles.length&&!cf){const sl=$('#bms_sel');sl.replaceChildren(...bmsFiles.map((f,i)=>new Option(f.name,i)));sl.style.display=bmsFiles.length>1?'inline-block':'none';
+  sl.onchange=()=>loadBms(bmsFiles[sl.value],files);await loadBms(bmsFiles[0],files);return;}
  if(!cf){if(af0){genFile=af0;AN=null;chart=null;$('#go').disabled=true;showGen(true);await runAnalysis();return;}
   if(!ini)$('#info').textContent='譜面ファイル（.ksh / .ksm / .kson）または音源が見つかりません';return;}
  try{
@@ -155,6 +229,7 @@ async function start(){
  await ctx.resume();stopAudio();cancelAnimationFrame(raf);
  let buf=null;
  if(demoMode)buf=demoBuf;
+ else if(chart&&chart.mix)buf=chart.mix;
  else if(audioFile){try{buf=await ctx.decodeAudioData(await audioFile.arrayBuffer());}catch(e){$('#info').textContent='音源をデコードできませんでした（無音で進行）';}}
  const cf=demoMode||$('#cfx_cb').checked;
  G={demo:demoMode,cfx:cf,notes:(cf?mergeCenter(chart.notes):chart.notes).map(n=>({...n,s:'w'})),score:0,combo:0,maxc:0,j:'',jt:0,t0:ctx.currentTime+2,held:Array(7).fill(false),auto:demoMode||$('#auto_cb').checked,flash:Array(7).fill(0),ci:0,tm:'normal',keys:new Set(),cur:[0,1],prev:0,lasers:(chart.lasers||[]).map(l=>({s:l.s,p:l.p,lt:l.p[0].t,hit:-1e9,bad:-1e9}))};
