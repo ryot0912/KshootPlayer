@@ -553,7 +553,8 @@ for(const k in IMGU){const i=new Image();i.onload=()=>{try{TIN[k]=tintOf(i);}cat
 const BC=[];{const b=atob(BASEP);for(let k=0;k<227;k++)BC.push(`rgb(${b.charCodeAt(k*3)},${b.charCodeAt(k*3+1)},${b.charCodeAt(k*3+2)})`);}
 const LZC=LZRAW.map(side=>side.map(cols=>{const st=[];cols.forEach((c,i)=>st.push([(40-LZXS[i])/80,c]));for(let i=cols.length-2;i>=0;i--)st.push([1-(40-LZXS[i])/80,cols[i]]);return st;}));
 const SIXL={0:0,4:1,1:2,2:3,5:4,3:5},LG=l=>S.six==1?(l===6?[-3,3]:[SIXL[l]-3,SIXL[l]-2]):(l<4?[l-2,l-1]:l===4?[-2,0]:l===5?[0,2]:[-1,1]);
-function fxChip(c,a,b,d,img){quad(c,a-.02,b+.02,d-23,a-.02,b+.02,d+23,'rgba(8,10,28,.9)');const p=pr(a,d),q=pr(b,d),w=q[0]-p[0],h=44*w/82;c.drawImage(img,p[0],p[1]-h/2,w,h);}
+const BTH=16,FXH=14;   // チップの高さ(平面px)。FXH=14はfx_chip.gif(82x14)の実寸比、BTHはBTチップ全体の高さ
+function fxChip(c,a,b,d,img){const hf=FXH*(b-a)*(S.six==1?Math.min(S.lw,86):S.lw)/82;quad(c,a-.02,b+.02,d-hf*.55,a-.02,b+.02,d+hf*.55,'rgba(8,10,28,.9)');const p=pr(a,d),q=pr(b,d),w=q[0]-p[0],h=FXH*w/82;c.drawImage(img,p[0],p[1]-h/2,w,h);}
 function fxBody(c,a,b,d0,d1,img){c.globalCompositeOperation='lighter';
  for(let d=d0;d<d1;d+=14){const e=Math.min(d1,d+14),p=pr(a,d),q=pr(b,d),r=pr(a,e);c.drawImage(img,0,5,82,1,p[0],r[1]-.5,q[0]-p[0],p[1]-r[1]+1);}
  c.globalCompositeOperation='source-over';}
@@ -632,13 +633,13 @@ function loop(ts){
   const[a0,b0]=LG(n.l);c2.globalAlpha=n.s==='miss'?.35:1;
   if(S.six==1){const fxl=n.l>=4,col=n.l===6?'#2fe08a':fxl?'#4f9bff':'#ffffff',a=a0+.06,b=b0-.06;
    if(n.d>0)quad(c2,a+.1,b-.1,d0,a+.1,b-.1,d1,n.l===6?'rgba(47,224,138,.6)':fxl?'rgba(79,155,255,.6)':'rgba(215,228,255,.7)');
-   quad(c2,a-.03,b+.03,d0-12,a-.03,b+.03,d0+12,'#0a0e28');quad(c2,a,b,d0-10,a,b,d0+10,col);quad(c2,a+.1,b-.1,d0-3,a+.1,b-.1,d0+3,'rgba(255,255,255,.55)');}
+   quad(c2,a-.03,b+.03,d0-BTH/2-1,a-.03,b+.03,d0+BTH/2+1,'#0a0e28');quad(c2,a,b,d0-BTH/2,a,b,d0+BTH/2,col);quad(c2,a+.1,b-.1,d0-BTH/6,a+.1,b-.1,d0+BTH/6,'rgba(255,255,255,.55)');}
   else if(n.l<4){const a=a0+.1,b=b0-.1;
    if(n.d>0){quad(c2,a+.05,b-.05,d0,a+.05,b-.05,d1,'rgba(10,14,40,.85)');quad(c2,a+.12,b-.12,d0,a+.12,b-.12,d1,'rgba(190,215,255,.92)');}
-   quad(c2,a-.03,b+.03,d0-13,a-.03,b+.03,d0+14,'#0a0e28');quad(c2,a,b,d0-11,a,b,d0+12,'#ffffff');quad(c2,a+.08,b-.08,d0-5,a+.08,b-.08,d0+6,'#8fb4ff');}
+   quad(c2,a-.03,b+.03,d0-BTH/2-1,a-.03,b+.03,d0+BTH/2+1,'#0a0e28');quad(c2,a,b,d0-BTH/2,a,b,d0+BTH/2,'#ffffff');quad(c2,a+.08,b-.08,d0-BTH/4,a+.08,b-.08,d0+BTH/4,'#8fb4ff');}
   else{const src=n.l===6?TIN:IMG,ch=src[n.se?'chipse':'chip'],lg=src.long,a=a0+.03,b=b0-.03;
    if(n.d>0){if(ok(lg)){quad(c2,a,b,d0,a,b,d1,'rgba(8,10,28,.6)');fxBody(c2,a,b,d0,d1,lg);fxCap(c2,a,b,d1,lg);if(n.s!=='hold')fxCap(c2,a,b,d0,lg);}else quad(c2,a,b,d0,a,b,d1,n.l===6?'#1a7a4a':'#7a3a00');}
-   else if(ok(ch))fxChip(c2,a,b,d0,ch);else quad(c2,a,b,d0-7,a,b,d0+9,n.l===6?'#4f8':'#fa4');}
+   else if(ok(ch))fxChip(c2,a,b,d0,ch);else quad(c2,a,b,d0-FXH/2,a,b,d0+FXH/2,n.l===6?'#4f8':'#fa4');}
   c2.globalAlpha=1;}
  for(const z of G.lasers)lzDraw(c2,z,now);
  c2.globalCompositeOperation='source-over';
